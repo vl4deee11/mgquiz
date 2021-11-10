@@ -61,14 +61,16 @@ type Result struct {
 //		T2.text as a_text,
 //		T2.is_right
 //	from (
-//		select *
+//		select
+//			uuid,
+//			text
 //		from questions
 //		where questions.difficulty_level = [%d]
 //		order by random()
 //		limit [%d]
 //	) as T1
 //	join answers as T2 on T1.uuid = T2.question_uuid
-const getRandomQFirstPart = "select T1.uuid as q_uuid, T1.text as q_text, T2.uuid as a_uuid, T2.text as a_text, T2.is_right from ( select * from questions where questions.difficulty_level = "
+const getRandomQFirstPart = "select T1.uuid as q_uuid, T1.text as q_text, T2.uuid as a_uuid, T2.text as a_text, T2.is_right from ( select uuid, text from questions where questions.difficulty_level = "
 const getRandomQSecondPart = " order by random() limit "
 const getRandomQThirdPart = ") as T1 join answers as T2 on T1.uuid = T2.question_uuid"
 
@@ -93,8 +95,6 @@ func GetNRandomQuestions(n int) (map[string]*RQuestion, error) {
 			queries[i-1] = sb.String()
 		}
 
-		results := make([]*Result, 0)
-
 		ctx, cancel := context.WithTimeout(context.Background(), poolAcquireTimeoutMS*time.Millisecond)
 		conn, err := connPool.Acquire(ctx)
 		if err != nil {
@@ -111,74 +111,61 @@ func GetNRandomQuestions(n int) (map[string]*RQuestion, error) {
 		}
 		defer rws.Close()
 		for rws.Next() {
-			var r = new(Result)
+			var (
+				qUUID   string
+				qText   string
+				aUUID   string
+				aText   string
+				isRight bool
+			)
 			err = rws.Scan(
-				&r.QUUID,
-				&r.QText,
-				&r.AUUID,
-				&r.AText,
-				&r.IsRight,
+				&qUUID,
+				&qText,
+				&aUUID,
+				&aText,
+				&isRight,
 			)
 			if err != nil {
 				return nil, err
 			}
-			results = append(results, r)
+
+			// add to map of results
+			if rQuestion, ok := m[qUUID]; ok {
+				// double right answer check
+				canAppend := (isRight && !rQuestion.HasRightAnswer) || !isRight
+				if canAppend {
+					rQuestion.Answers = append(rQuestion.Answers,
+						RAnswer{
+							Text:    aText,
+							UUID:    aUUID,
+							IsRight: isRight,
+						})
+					if isRight {
+						rQuestion.HasRightAnswer = true
+					}
+				}
+			} else {
+				m[qUUID] = &RQuestion{
+					HasRightAnswer: isRight,
+					Text:           qText,
+					Answers: []RAnswer{
+						{
+							Text:    aText,
+							UUID:    aUUID,
+							IsRight: isRight,
+						},
+					},
+				}
+			}
 		}
 
 		if err != rws.Err() {
 			return nil, err
 		}
-
-		m = addResultsToMap(results, m)
 	} else {
 		// TODO: make it
 		return nil, errDistribution
 	}
 
-	return deleteFromMapQuestionWithoutAnswer(m), nil
-}
-
-func addResultsToMap(results []*Result, m map[string]*RQuestion) map[string]*RQuestion {
-	for j := range results {
-		r := results[j]
-		if _, ok := m[r.QUUID]; ok {
-			// double right answer check
-			canAppend := (r.IsRight && !m[r.QUUID].HasRightAnswer) || !r.IsRight
-			if canAppend {
-				m[r.QUUID].Answers = append(m[r.QUUID].Answers,
-					RAnswer{
-						Text:    r.AText,
-						UUID:    r.AUUID,
-						IsRight: r.IsRight,
-					})
-				if r.IsRight {
-					m[r.QUUID].HasRightAnswer = true
-				}
-			}
-		} else {
-			m[r.QUUID] = &RQuestion{
-				HasRightAnswer: r.IsRight,
-				Text:           r.QText,
-				Answers: []RAnswer{
-					{
-						Text:    r.AText,
-						UUID:    r.AUUID,
-						IsRight: r.IsRight,
-					},
-				},
-			}
-		}
-	}
-
-	return m
-}
-
-func deleteFromMapQuestionWithoutAnswer(m map[string]*RQuestion) map[string]*RQuestion {
-	for k := range m {
-		if !m[k].HasRightAnswer {
-			delete(m, k)
-		}
-	}
-
-	return m
+	return m, nil
 }
