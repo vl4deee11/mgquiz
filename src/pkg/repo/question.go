@@ -130,6 +130,7 @@ func GetNRandomQuestions(n int) (map[string]*RQuestion, error) {
 			}
 
 			// add to map of results
+			// possible no right answer for question if it's not in db
 			if rQuestion, ok := m[qUUID]; ok {
 				// double right answer check
 				canAppend := (isRight && !rQuestion.HasRightAnswer) || !isRight
