@@ -1,0 +1,103 @@
+Общие возможные ошибки
+    response [500 ISE], [400 BR] - {"data":null,"error":"some error"}
+1.
+   Генерация новых вопросов с ответами
+   GET: http://host/api/questions/generate?n=[number]
+   GET PARAM: [n - кол-во вопросов] по дефолту = 9
+   response [200 OK]:
+   {
+     "data": [
+        {
+         "text": "Тескт вопроса 1",
+         "answers": [
+           {
+             "text": "Ответ 1 на вопрос 1",
+             "is_right": true,
+             "uuid": "eb634623-dd43-462b-baba-1b938bede765"
+           },
+           {
+             "text": "Ответ 2 на вопрос 1",
+             "is_right": false,
+             "uuid": "eb634623-dd43-462b-baba-1b938bede767"
+           }
+           ...
+         ]
+       }
+       ...
+     ],
+     "error": ""
+   }
+2.
+    Добавление вопроса
+    POST: http://host/api/questions
+    GET PARAM: [k - ключ безопастности (строка)]
+    POST BODY:
+    {
+      "text": "Some text" (string),
+      // В будующем возможно добавяться еще уровни но пока их 3
+      "difficulty_level" : (EASY - 1, MIDDLE - 2, HARD - 3) (uin8)
+    }
+    response [200 OK]:
+    {
+     "data":
+      {
+       "uuid":"question uuid"
+      },
+      "error":""
+    }
+3.
+    Добавление ответа на вопрос
+    POST: http://host/api/answers
+    GET PARAM: [k - ключ безопастности (строка)]
+    POST BODY:
+    {
+      "text": "Some text" (string),
+      "question_uuid" : "question uuid" (string),
+      "is_right": true (bool)
+    }
+    response [200 OK]:
+    {
+     "data":
+      {
+       "uuid":"answer uuid"
+      },
+      "error":""
+    }
+
+4. Добавление информации о пользователе
+    POST: http://host/api/user-info
+    GET PARAM: [k - ключ безопастности (строка)]
+    POST BODY:
+    {
+      "name": "Some name" (string),
+      "link": "Some link" (string),
+      "phone": "Some phone" (string),
+      "email": "Some email" (string),
+      "question": "Some question" (string),
+    }
+    response [200 OK]:
+    {
+     "data":
+      {
+       "uuid":"user info uuid"
+      },
+      "error":""
+    }
+
+5. Получение списка информации о пользователе
+    GET: http://host/api/user-info?l=[number]&o=[number]
+    GET PARAM: [l - лимит] по дефолту = 100, [o - смешение] по дефолту = 0, [k - ключ безопастности]
+    response [200 OK]:
+    {
+         "data": [
+            {
+              "name": "Some name" (string),
+              "link": "Some link" (string),
+              "phone": "Some phone" (string),
+              "email": "Some email" (string),
+              "question": "Some question" (string),
+            }
+           ...
+         ],
+        "error": ""
+    }
